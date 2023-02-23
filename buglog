@@ -1,0 +1,124 @@
+Checkpoint 1:
+1.
+BUG: idtInit: offset_31_16 == NULL && offset_15_00 == NULL
+Solution: load idt!
+2.
+Bug: Keyboard error, keyboard handler is not called
+Solution: add send_eoi()
+3.
+Bug: Assembly linkage error
+Solution: add #define ASM and etc.
+4.
+Bug: IDT does not work at all
+wrong: forget to set idt.present
+correct: set idt.present to 1 while calling SET_IDT_ENTRY
+5.
+Bug: IRQ signal is transported incorrectly
+wrong: #define IRQ_NUMBER_OF_SLAVE 8
+correct: #define IRQ_NUMBEROF_SLAVE 2
+6.
+Bug: wrong handler is called whe a interrupt is called
+wrong:
+    SET_IDT_ENTRY(idt[IRQ1_KEYBOARD], rtc_handler_linkage);
+    SET_IDT_ENTRY(idt[IRQ8_REAL_TIME_CLOCK], keyboard_handler_linkage);
+correct:
+    SET_IDT_ENTRY(idt[IRQ1_KEYBOARD], keyboard_handler_linkage);
+    SET_IDT_ENTRY(idt[IRQ8_REAL_TIME_CLOCK], rtc_handler_linkage);
+7.
+Bug:
+Stupid!
+    if (input < KEYBOARD_KEY_NUMBER) {
+        putc(scancode[input][0]);
+    }
+Solution:
+    It should be putc(scancode[0][input]);
+8.
+Bug: no character shown using putc(), don't know why
+Solution: use printf()
+
+9. Paging was not getting enabled
+Cause and Fix: The register values had garbage bits and the hex number was written wrong, which caused the paging to not be enabled.
+Function initialization also had to be fixed in several files for paging to be enabled.
+
+
+//Checkpoint 2:
+1.
+Bug: Page fault, address calculation is wrong in filesystem.c
+Solution: use fixed size data structure
+2.
+Bug: No output, address calculation is wrong in filesystem.c
+Wrong:
+typedef struct data_block {
+    uint8_t data[BLOCK_SIZE / 4];
+} data_block_t;
+Correct:
+typedef struct data_block {
+    uint32_t data[BLOCK_SIZE / 4];
+} data_block_t;
+3.
+Bug: keyboard buffer size always zero
+Reason: forget to increment keyboard_buffer_index
+Solution: increment keyboard_buffer_index
+4.
+Bug: blue screen error: keyboard buffer overflow? Don't know why
+Solution: solved after add vertical scrolling logic in putc(), so this bug should be caused by video memory error
+
+
+Checkpoint 3:
+1.
+Bug: entry_point value is incorrect
+Solution: we need to read from base memory + 24 to get the right entry point
+2.
+Bug: file directory error in syscall_execute
+Solution: file directory (inode) should be a variable, not a pointer
+3.
+Bug: halt() does not work, page fault
+Reason: halt_paging() remapping memory incorrectly
+Solution:  modify the halt_paging() function to remap memory correctly
+4.
+Bug: empty string fail
+Solution: return -1 if the string is empty
+5.
+Bug: close unopend or invalid fd fail
+Solution: modify original implementation of filesystem to return -1 if inode_num is -1
+
+Checkpoint 4:
+1.
+Bug: grep does not work
+Reason: return error code when no match found, so, longname file name is not displayed
+Solution: modify grep to handle with longname file
+2.
+Bug: cat rtc eorror
+Reason: rtc is not installed at all
+Solution: install rtc
+3.
+Bug: cat rtc infinite loop
+Reason: rtc is not enabled, so, rtc_handler() is not called
+Solution: enable rtc in kernel.c
+4.
+Bug: all commands without arguments fail
+Reason: the parsing logic in syscall.c is not correct
+Solution: modify syscall.c to handle with empty arguments
+
+Checkpoint 5:
+1.
+Bug: cursor position is not correct after switching to another terminal
+Reason: cursor_x and cursor_y are not individually designed to be used in each terminal
+Solution: use cursor_x and cursor_y in terminal_t structure
+2.
+Bug: interrupt disabled after starting the fist terminal
+Reason: sti() is not called after calling cli()
+Solution: modify syscall.c to call sti() after calling cli(). To be specific, add a sti() call in context_switch_execute()
+3.
+Bug: cursor jump to the bottom of the screen and them jump back to the correct position repeatedly
+     when there is a count or ping-pong is running in another terminal
+Reason: set_cursor_position() is called in putc()
+Solution: remove set_cursor_position() in putc() and design a new function called current_terminal_putc() to
+4.
+Bug: page fault after context switch
+Reason: forget to store ebp, esp for root shell
+Solution: modify schedule() to store ebp, esp for root shell; actually, the logic is complex
+5.
+Bug: fish still appears in the terminal after switching to another terminal
+Reason: fish is directly written to the screen, so, it is not cleared when switching to another terminal
+Solution: modify the vidmap() and paging_video_memory() to make sure each terminal write it into its own video memory when it is not current terminal
